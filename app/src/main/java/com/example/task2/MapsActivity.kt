@@ -17,17 +17,19 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private lateinit var mMap: GoogleMap
     private lateinit var searchView: SearchView
-    private lateinit var markerList: ArrayList<Marker>
-    private lateinit var timer: Timer
+    private var markerList: ArrayList<Marker> = ArrayList()
+    private var timer: Timer = Timer()
 
-
+    private var sec = 0
+    private var isTimerStarted = false
+    private var timerLifespan = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_maps)
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         initLayout()
-        initValues()
+        //initValues()
     }
 
 
@@ -47,8 +49,22 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         mapFragment.getMapAsync(this)
     }
 
-    fun initValues(){
+/*    fun initValues(){
         markerList = ArrayList()
         timer = Timer()
+    }*/
+
+    private fun setTimerActive() {
+        timerLifespan = markerList.size
+        timer = Timer()
+        timer.schedule(object : TimerTask() {
+            override fun run() {
+                this@MapsActivity.runOnUiThread {
+                    isTimerStarted = true
+                    sec += 1
+                    timerLifespan -=1
+                }
+            }
+        }, 1, 1000)
     }
 }
