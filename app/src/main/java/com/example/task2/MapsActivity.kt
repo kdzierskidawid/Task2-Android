@@ -35,7 +35,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
-
+        setTimerActive()
         // Add a marker in Sydney and move the camera
         //val sydney = LatLng(-34.0, 151.0)
         //mMap.addMarker(MarkerOptions().position(sydney).title("Marker in Sydney"))
@@ -60,11 +60,17 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         timer.schedule(object : TimerTask() {
             override fun run() {
                 this@MapsActivity.runOnUiThread {
+                    checkTimerMarker()
                     isTimerStarted = true
                     sec += 1
                     timerLifespan -=1
                 }
             }
         }, 1, 1000)
+    }
+
+    fun checkTimerMarker(){
+        val sydney = LatLng(-34.0, 151.0)
+        mMap.addMarker(MarkerOptions().position(sydney).title("Marker in Sydney"))
     }
 }
