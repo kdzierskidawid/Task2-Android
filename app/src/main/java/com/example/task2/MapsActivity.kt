@@ -13,7 +13,10 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.net.URL
@@ -30,7 +33,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private var sec = 0
     private var isTimerStarted = false
     private var timerLifespan = 0
-    private var requestsIterator = 0;
+    private var requestsIterator = 0
+    private var limit = 0;
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_maps)
@@ -113,11 +117,55 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             }
 
             override fun onQueryTextSubmit(query: String): Boolean {
+                limit=20
+                coroutineHTTP(query, limit, 0)
                 return false
             }
         })
     }
 
+    private fun coroutineHTTP(query: String, limit: Int, offset: Int) {
+        GlobalScope.launch {
+            var resultJSON = httpGet(query, limit, offset)
+
+            if (!resultJSON.has("places")) {
+                Log.e("---","ERROR encountered")
+                Thread.sleep(1000)
+                coroutineHTTP(query,limit,offset)
+                Log.e("---",resultJSON.toString())
+                return@launch
+            }
+
+            val places: JSONArray = resultJSON.getJSONArray("places")
+            val coordinateList = HashMap<Int, LatLng>()
+
+            for (i in 0 until places.length()) {
+                val place: JSONObject = places.getJSONObject(i)
+                if (place.has("coordinates") && place.has("life-span")) {
+                    if (place.getJSONObject("life-span").has("begin")) {
+                        val beginDate =
+                            place.getJSONObject("life-span").getString("begin").substring(0, 4)
+                                .toInt()
+                        if (beginDate >= 1990) {
+                            val lat =
+                                place.getJSONObject("coordinates").getString("latitude").toDouble()
+                            val lng =
+                                place.getJSONObject("coordinates").getString("longitude").toDouble()
+                            val lifeSpan = beginDate - 1990
+                            coordinateList[lifeSpan] = LatLng(lat, lng)
+                        }
+                    }
+                }
+            }
+            addMarkers(coordinateList)
+
+            if ((offset + limit) < resultJSON.getInt("count")) {
+                coroutineHTTP(query, limit, offset + limit)
+            } else {
+                setTimerActive()
+            }
+        }
+    }
     private suspend fun httpGet(setQuery: String, setLimit: Int, setOffset: Int): JSONObject {
         requestsIterator += 1
 
