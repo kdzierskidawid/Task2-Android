@@ -2,6 +2,7 @@ package com.example.task2
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.SearchView
 
@@ -11,6 +12,11 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.IOException
+import java.net.URL
 import java.util.*
 import kotlin.collections.ArrayList
 
@@ -24,7 +30,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private var sec = 0
     private var isTimerStarted = false
     private var timerLifespan = 0
-
+    private var requestsIterator = 0;
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_maps)
@@ -82,7 +88,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun addMarkers(coordinatesOnMap: HashMap<Int, LatLng>) {
         this@MapsActivity.runOnUiThread {
             for ((lifespan, position) in coordinatesOnMap) {
-                val marker = mMap.addMarker(MarkerOptions().position(position).title("Request marker"))
+                val marker = mMap.addMarker(MarkerOptions().position(position).title("Lifespan: " + lifespan))
                 markerList.add(Marker(marker, lifespan))
             }
         }
@@ -112,6 +118,26 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         })
     }
 
+    private suspend fun httpGet(setQuery: String, setLimit: Int, setOffset: Int): JSONObject {
+        requestsIterator += 1
 
+        // On each entity resource, you can perform three different GET requests:
+        // search:   /<ENTITY>?query=<QUERY>&limit=<LIMIT>&offset=<OFFSET>
+        // source: https://musicbrainz.org/doc/Development/XML_Web_Service/Version_2
+        val html = "http://musicbrainz.org/ws/2/place/?query=$setQuery&limit=$setLimit&offset=$setOffset&fmt=json"
+
+        //Coroutine
+        return withContext(Dispatchers.IO) {
+            val result = try {
+                URL(html)
+                    .openStream()
+                    .bufferedReader()
+                    .use { it.readText() }
+            } catch (e: IOException) {
+                "{error:rateLimit}"
+            }
+            JSONObject(result)
+        }
+    }
 
 }
