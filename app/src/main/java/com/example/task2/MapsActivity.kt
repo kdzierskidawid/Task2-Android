@@ -34,7 +34,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private var isTimerStarted = false
     private var timerLifespan = 0
     private var requestsIterator = 0
-    private var limit = 0;
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_maps)
@@ -117,7 +117,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             }
 
             override fun onQueryTextSubmit(query: String): Boolean {
-                limit=20
+                val limit=20
                 coroutineHTTP(query, limit, 0)
                 return false
             }
@@ -172,7 +172,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         // On each entity resource, you can perform three different GET requests:
         // search:   /<ENTITY>?query=<QUERY>&limit=<LIMIT>&offset=<OFFSET>
         // source: https://musicbrainz.org/doc/Development/XML_Web_Service/Version_2
-        val html = "http://musicbrainz.org/ws/2/place/?query=$setQuery&limit=$setLimit&offset=$setOffset&fmt=json"
+        val html = "https://musicbrainz.org/ws/2/place/?query=$setQuery&limit=$setLimit&offset=$setOffset&fmt=json"
 
         //Coroutine
         return withContext(Dispatchers.IO) {
