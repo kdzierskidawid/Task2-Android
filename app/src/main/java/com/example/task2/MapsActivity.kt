@@ -2,6 +2,7 @@ package com.example.task2
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.view.View
 import android.widget.SearchView
 
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -30,16 +31,13 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         initLayout()
         //initValues()
+        searchSetup()
     }
 
 
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
-        setTimerActive()
-        // Add a marker in Sydney and move the camera
-        //val sydney = LatLng(-34.0, 151.0)
-        //mMap.addMarker(MarkerOptions().position(sydney).title("Marker in Sydney"))
-        //mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney))
+        //setTimerActive()
     }
 
     fun initLayout(){
@@ -48,11 +46,23 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
     }
-
-/*    fun initValues(){
-        markerList = ArrayList()
-        timer = Timer()
-    }*/
+    private fun deleteMarkers(seconds: Int) {
+        for (marker in markerList) {
+            if ((marker.lifetime - seconds)==0) {
+                marker.marker.remove()
+            }
+        }
+        if(timerLifespan == 0){
+            mMap.clear()
+            if(isTimerStarted) {
+                timer.cancel()
+                timer.purge()
+                isTimerStarted = false
+            }
+            sec = 0
+            markerList = ArrayList()
+        }
+    }
 
     private fun setTimerActive() {
         timerLifespan = markerList.size
@@ -60,17 +70,48 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         timer.schedule(object : TimerTask() {
             override fun run() {
                 this@MapsActivity.runOnUiThread {
-                    checkTimerMarker()
-                    isTimerStarted = true
+                    deleteMarkers(sec)
                     sec += 1
                     timerLifespan -=1
+                    isTimerStarted = true
                 }
             }
         }, 1, 1000)
     }
 
-    fun checkTimerMarker(){
-        val sydney = LatLng(-34.0, 151.0)
-        mMap.addMarker(MarkerOptions().position(sydney).title("Marker in Sydney"))
+    private fun addMarkers(coordinatesOnMap: HashMap<Int, LatLng>) {
+        this@MapsActivity.runOnUiThread {
+            for ((lifespan, position) in coordinatesOnMap) {
+                val marker = mMap.addMarker(MarkerOptions().position(position).title("Request marker"))
+                markerList.add(Marker(marker, lifespan))
+            }
+        }
     }
+
+    private fun searchSetup() {
+        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextChange(newText: String): Boolean {
+                if (newText.isBlank()) {
+                    if(timerLifespan == 0){
+                        mMap.clear()
+                        if(isTimerStarted) {
+                            timer.cancel()
+                            timer.purge()
+                            isTimerStarted = false
+                        }
+                        sec = 0
+                        markerList = ArrayList()
+                    }
+                }
+                return false
+            }
+
+            override fun onQueryTextSubmit(query: String): Boolean {
+                return false
+            }
+        })
+    }
+
+
+
 }
