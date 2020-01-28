@@ -2,11 +2,10 @@ package com.example.task2
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.util.Log
-import android.view.View
+import android.widget.ProgressBar
 import android.widget.SearchView
+import android.widget.Toast
 
-import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
@@ -38,12 +37,10 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_maps)
-        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         initLayout()
         //initValues()
         searchSetup()
     }
-
 
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
@@ -64,19 +61,14 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         }
         if(timerLifespan == 0){
             mMap.clear()
-            if(isTimerStarted) {
-                timer.cancel()
-                timer.purge()
-                isTimerStarted = false
-            }
-            sec = 0
-            markerList = ArrayList()
+            resetMarkers()
         }
     }
 
     private fun setTimerActive() {
         timerLifespan = markerList.size
         timer = Timer()
+
         timer.schedule(object : TimerTask() {
             override fun run() {
                 this@MapsActivity.runOnUiThread {
@@ -86,7 +78,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                     isTimerStarted = true
                 }
             }
-        }, 1, 1000)
+        }, 2, 1000)
     }
 
     private fun addMarkers(coordinatesOnMap: HashMap<Int, LatLng>) {
@@ -100,24 +92,17 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun searchSetup() {
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextChange(newText: String): Boolean {
-                if (newText.isBlank()) {
-                    if(timerLifespan == 0){
-                        mMap.clear()
-                        if(isTimerStarted) {
-                            timer.cancel()
-                            timer.purge()
-                            isTimerStarted = false
-                        }
-                        sec = 0
-                        markerList = ArrayList()
-                    }
+            override fun onQueryTextChange(searchView: String): Boolean {
+                // if search view is empty, then delete added markers
+                if (searchView.isBlank()) {
+                    resetMarkers()
                 }
                 return false
             }
 
             override fun onQueryTextSubmit(query: String): Boolean {
-                val limit=20
+                // set limit on 25. Default limit on MusicBrainz server's 25 but allowed range 1-100.
+                val limit=25
                 coroutineHTTP(query, limit, 0)
                 return false
             }
@@ -126,40 +111,37 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun coroutineHTTP(query: String, limit: Int, offset: Int) {
         GlobalScope.launch {
-            var resultJSON = httpGet(query, limit, offset)
+            var result = httpGet(query, limit, offset)
 
-            if (!resultJSON.has("places")) {
-                Log.e("---","ERROR encountered")
-                Thread.sleep(1000)
+            if (!result.has("places")) {
+                Thread.sleep(2000)
                 coroutineHTTP(query,limit,offset)
-                Log.e("---",resultJSON.toString())
                 return@launch
             }
-
-            val places: JSONArray = resultJSON.getJSONArray("places")
-            val coordinateList = HashMap<Int, LatLng>()
+            val places: JSONArray = result.getJSONArray("places")
+            val latlngList = HashMap<Int, LatLng>()
 
             for (i in 0 until places.length()) {
                 val place: JSONObject = places.getJSONObject(i)
                 if (place.has("coordinates") && place.has("life-span")) {
                     if (place.getJSONObject("life-span").has("begin")) {
-                        val beginDate =
-                            place.getJSONObject("life-span").getString("begin").substring(0, 4)
-                                .toInt()
-                        if (beginDate >= 1990) {
-                            val lat =
-                                place.getJSONObject("coordinates").getString("latitude").toDouble()
-                            val lng =
-                                place.getJSONObject("coordinates").getString("longitude").toDouble()
-                            val lifeSpan = beginDate - 1990
-                            coordinateList[lifeSpan] = LatLng(lat, lng)
+
+                        val begin = place.getJSONObject("life-span").getString("begin").substring(0,4).toInt()
+
+                        if (begin >= 1990) {
+                            val latitude = place.getJSONObject("coordinates").getString("latitude").toDouble()
+                            val longitude = place.getJSONObject("coordinates").getString("longitude").toDouble()
+                            val lifeSpan = begin - 1990
+                            latlngList[lifeSpan] = LatLng(latitude, longitude)
                         }
                     }
                 }
-            }
-            addMarkers(coordinateList)
 
-            if ((offset + limit) < resultJSON.getInt("count")) {
+            }
+
+            addMarkers(latlngList)
+
+            if ((offset + limit) < result.getInt("count")) {
                 coroutineHTTP(query, limit, offset + limit)
             } else {
                 setTimerActive()
@@ -186,6 +168,18 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             }
             JSONObject(result)
         }
+    }
+
+    // reset markers pointed on map
+    private fun resetMarkers(){
+        mMap.clear()
+        if(isTimerStarted) {
+            timer.cancel()
+            timer.purge()
+            isTimerStarted = false
+        }
+        sec = 0
+        markerList = ArrayList()
     }
 
 }
